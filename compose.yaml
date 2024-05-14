@@ -1,9 +1,25 @@
+version: '3.8'
 services:
   web:
     build: .
     ports:
-      - "8000:8000"
+      - "80:80"
     volumes:
       - .:/code
-  # redis:
-  #   image: "redis:alpine"
+    depends_on:
+      - redis
+    restart:
+      always
+  redis:
+    image: "redis:alpine"
+    restart: always
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=yourpassword
+      - REDIS_PORT=6379
+    volumes:
+      - redis:/data
+volumes:
+  redis:
+    driver: local
