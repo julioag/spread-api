@@ -2,8 +2,8 @@ import redis
 
 from fastapi import FastAPI, status, HTTPException
 
-from lib import get_spread, get_ticker_from_api, get_markets
-from models import SpreadAlert
+from app.lib import get_spread, get_ticker_from_api, get_markets
+from app.models import SpreadAlert
 
 api = FastAPI()
 
@@ -50,11 +50,13 @@ def get_spread_alert(market_id: str):
     return {"spread": float(spread)}
 
 
-@api.get("/spread-alert/compare")
-async def check_spread_alerts(market_id: str, spread: float):
+@api.get("/compare-spread-alert")
+async def compare_spread_alerts(market_id: str, spread: float):
     alert = rd.get(market_id)
     if alert is None:
         return {"error": "alert not found"}
     if float(spread) > float(alert):
         return {"alert": "spread is higher than the alert"}
+    if float(spread) == float(alert):
+        return {"alert": "spread is equal to the alert"}
     return {"alert": "spread is lower than the alert"}
