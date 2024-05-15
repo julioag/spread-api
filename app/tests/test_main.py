@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import api
@@ -5,7 +6,11 @@ from app.main import api
 client = TestClient(api)
 
 
-def test_get_market_spread():
+@patch("app.lib.get_ticker_from_api")
+def test_get_market_spread(mock_get_ticker_from_api):
+    mock_get_ticker_from_api.return_value = {
+        "ticker": {"min_ask": [100], "max_bid": [50]}
+    }
     response = client.get("/spread/btc-clp")
     assert response.status_code == 200
     data = response.json()
@@ -13,7 +18,13 @@ def test_get_market_spread():
     assert type(list(data.values())[0]) == float
 
 
-def test_get_all_market_spreads():
+@patch("app.lib.get_ticker_from_api")
+@patch("app.lib.get_markets")
+def test_get_all_market_spreads(mock_get_markets, mock_get_ticker_from_api):
+    mock_get_markets.return_value = {"markets": [{"name": "btc-clp"}]}
+    mock_get_ticker_from_api.return_value = {
+        "ticker": {"min_ask": [100], "max_bid": [50]}
+    }
     response = client.get("/spread")
     assert response.status_code == 200
     data = response.json()
