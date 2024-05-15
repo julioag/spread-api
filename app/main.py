@@ -1,9 +1,8 @@
-import requests
 import redis
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, status, HTTPException
 
-from lib import get_spread
+from lib import get_spread, get_ticker_from_api, get_markets
 from models import SpreadAlert
 
 api = FastAPI()
@@ -14,46 +13,44 @@ rd = redis.Redis(host="redis", port=6379, db=0)
 
 
 @api.get("/spread/{market_id}")
-async def get_market_spread(market_id: str):
-    url = buda_url + "/markets/" + market_id + "/ticker"
-    response = requests.get(url)
-    if response.status_code != 200:
-        return {"error": "market not found"}
-    data = response.json()
-    spread = get_spread(data)
-    return {"spread": spread}
+def get_market_spread(market_id: str):
+    try:
+        data = get_ticker_from_api(market_id)
+        spread = get_spread(data)
+        return {"spread": spread}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @api.get("/spread/")
-async def get_all_markets_spread():
-    url = buda_url + "/markets"
-    response = requests.get(url)
-    data = response.json()
-    markets = list(map(lambda market: market["name"], data["markets"]))
-    spreads = {}
-    for market in markets:
-        url = buda_url + "/markets/" + market + "/ticker"
-        response = requests.get(url)
-        data = response.json()
-        spreads[market] = get_spread(data)
-    return spreads
+def get_all_markets_spread():
+    try:
+        data = get_markets()
+        markets = list(map(lambda market: market["name"], data["markets"]))
+        spreads = {}
+        for market in markets:
+            data = get_ticker_from_api(market)
+            spreads[market] = get_spread(data)
+        return spreads
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @api.post("/spread-alert/", status_code=status.HTTP_201_CREATED)
-async def post_new_spread_alert(spread_alert: SpreadAlert):
+def post_new_spread_alert(spread_alert: SpreadAlert):
     rd.set(spread_alert.market, spread_alert.spread)
     return {"market": spread_alert.market, "spread": spread_alert.spread}
 
 
 @api.get("/spread-alert/{market_id}")
-async def get_spread_alert(market_id: str):
+def get_spread_alert(market_id: str):
     spread = rd.get(market_id)
     if spread is None:
         return {"error": "market not found"}
     return {"spread": float(spread)}
 
 
-@api.get("/spread-alert-check/")
+@api.get("/spread-alert/compare")
 async def check_spread_alerts(market_id: str, spread: float):
     alert = rd.get(market_id)
     if alert is None:
